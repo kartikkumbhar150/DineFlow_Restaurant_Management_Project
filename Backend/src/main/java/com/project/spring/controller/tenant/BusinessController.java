@@ -5,6 +5,7 @@ import com.project.spring.dto.BusinessDTO;
 import com.project.spring.dto.DashboardDetailsDTO;
 import com.project.spring.model.tenant.Business;
 import com.project.spring.repo.tenant.TenantBusinessRepository;
+import com.project.spring.service.tenant.BusinessService;
 import com.project.spring.service.tenant.CloudinaryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -29,8 +30,12 @@ public class BusinessController {
     @Autowired
     private CloudinaryService cloudinaryService;
 
+    @Autowired
+    private BusinessService businessService;
+
+
     @GetMapping("/dashboard/showMe")
-@PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'CHEF')")
+
 public ResponseEntity<ApiResponse<DashboardDetailsDTO>> getDashboardDetails() {
     try {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -66,7 +71,6 @@ public ResponseEntity<ApiResponse<DashboardDetailsDTO>> getDashboardDetails() {
 
     // === Update default business logo ===
     @PutMapping(value = "/logo", consumes = {"multipart/form-data"})
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'CHEF')")
     public ResponseEntity<ApiResponse<BusinessDTO>> updateBusinessLogo(
             @RequestParam("file") MultipartFile file) {
         try {
@@ -74,7 +78,8 @@ public ResponseEntity<ApiResponse<DashboardDetailsDTO>> getDashboardDetails() {
                 try {
                     String logoUrl = cloudinaryService.uploadFile(file);
                     existing.setLogoUrl(logoUrl);
-                    Business saved = businessRepository.save(existing);
+                    Business saved = businessService.updateBusiness(existing);
+
                     return ResponseEntity.ok(
                             new ApiResponse<>("success", "Business logo updated successfully", mapToDTO(saved))
                     );
@@ -92,7 +97,6 @@ public ResponseEntity<ApiResponse<DashboardDetailsDTO>> getDashboardDetails() {
 
     // === Get default business ===
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'CHEF')")
     public ResponseEntity<ApiResponse<BusinessDTO>> getBusiness() {
         try {
             return businessRepository.findById(DEFAULT_BUSINESS_ID)
@@ -107,7 +111,6 @@ public ResponseEntity<ApiResponse<DashboardDetailsDTO>> getDashboardDetails() {
     }
     // === Upload a logo file only (without updating business DB) ===
 @PostMapping(value = "/logo", consumes = {"multipart/form-data"})
-@PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'CHEF')")
 public ResponseEntity<ApiResponse<String>> uploadBusinessLogo(
         @RequestParam("file") MultipartFile file) {
     try {
@@ -138,7 +141,8 @@ public ResponseEntity<ApiResponse<BusinessDTO>> addBusiness(@RequestBody Busines
             existing.setEmail(newBusiness.getEmail());
             existing.setTableCount(newBusiness.getTableCount());
 
-            Business saved = businessRepository.save(existing);
+            Business saved = businessService.updateBusiness(existing);
+;
             return ResponseEntity.ok(
                     new ApiResponse<>("success", "Business updated successfully", mapToDTO(saved))
             );
@@ -160,7 +164,6 @@ public ResponseEntity<ApiResponse<BusinessDTO>> addBusiness(@RequestBody Busines
 
     // === Update default business ===
     @PutMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF', 'CHEF')")
     public ResponseEntity<ApiResponse<BusinessDTO>> updateBusiness(@RequestBody Business updatedBusiness) {
         try {
             return businessRepository.findById(DEFAULT_BUSINESS_ID).map(existing -> {
@@ -175,7 +178,8 @@ public ResponseEntity<ApiResponse<BusinessDTO>> addBusiness(@RequestBody Busines
                 existing.setEmail(updatedBusiness.getEmail());
                 existing.setTableCount(updatedBusiness.getTableCount());
 
-                Business saved = businessRepository.save(existing);
+                Business saved = businessService.updateBusiness(existing);
+;
                 return ResponseEntity.ok(
                         new ApiResponse<>("success", "Business updated successfully", mapToDTO(saved)));
             }).orElse(ResponseEntity.status(404).body(

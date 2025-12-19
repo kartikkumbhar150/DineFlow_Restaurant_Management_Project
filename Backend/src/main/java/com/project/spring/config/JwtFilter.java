@@ -28,7 +28,14 @@ public class JwtFilter extends OncePerRequestFilter {
     private MyStaffUserDetailsService userDetailsService;
 
     @Autowired
-    private StaffUserRepository staffUserRepository; // ✅ Needed to fetch DB user and token
+    private StaffUserRepository staffUserRepository;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return path.startsWith("/api/v1/auth/")
+                || "OPTIONS".equalsIgnoreCase(request.getMethod());
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -36,58 +43,69 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        String authHeader = request.getHeader("Authorization");
-        String token = null;
-        String username = null;
-        String dbName = null;
-
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
-            try {
-                username = jwtService.extractUserName(token);
-                dbName = jwtService.extractdbName(token);
-
-                System.out.println("Token: " + token);
-                System.out.println("Username extracted: " + username);
-                System.out.println("Tenant DB extracted from token: " + dbName);
-
-                // ✅ Set tenant context before DB/auth
-                if (dbName != null) {
-                    TenantContext.setCurrentTenant(dbName);
-                } else {
-                    TenantContext.setCurrentTenant("master");
-                }
-            } catch (Exception e) {
-                System.out.println("Invalid token: " + e.getMessage());
-            }
-        } else {
-            System.out.println("Authorization header missing or invalid: " + authHeader);
-        }
-
         try {
-            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                StaffUser dbUser = staffUserRepository.findByUserName(username).orElse(null);
+            String authHeader = request.getHeader("Authorization");
 
-                if (dbUser != null && jwtService.isTokenValidForUser(token, dbUser)) {
-                    // ✅ Use DB user for validation (ensures only latest token works)
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                sendUnauthorized(response, "Missing or invalid Authorization header");
+                return;
+            }
 
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails, null, userDetails.getAuthorities());
+            String token = authHeader.substring(7);
 
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                } else {
-                    System.out.println("Token invalid or not matching DB stored token");
+            String username = jwtService.extractUserName(token);
+            String dbName = jwtService.extractdbName(token);
+
+            if (dbName != null) {
+                TenantContext.setCurrentTenant(dbName);
+            } else {
+                TenantContext.setCurrentTenant("master");
+            }
+
+            if (username != null &&
+                SecurityContextHolder.getContext().getAuthentication() == null) {
+
+                StaffUser dbUser = staffUserRepository
+                        .findByUserName(username)
+                        .orElse(null);
+
+                if (dbUser == null ||
+                        !jwtService.isTokenValidForUser(token, dbUser)) {
+                    sendUnauthorized(response, "Invalid or expired token");
+                    return;
                 }
+
+                UserDetails userDetails =
+                        userDetailsService.loadUserByUsername(username);
+
+                UsernamePasswordAuthenticationToken authToken =
+                        new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+
+                authToken.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request));
+
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
 
             filterChain.doFilter(request, response);
 
         } finally {
-            // ✅ Always clear tenant after request
             TenantContext.clear();
         }
+    }
+
+    private void sendUnauthorized(HttpServletResponse response, String message)
+            throws IOException {
+
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+
+        response.getWriter().write("""
+            {
+              "status": "error",
+              "message": "%s"
+            }
+            """.formatted(message));
     }
 }

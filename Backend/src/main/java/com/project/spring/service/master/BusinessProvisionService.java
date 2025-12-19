@@ -197,7 +197,7 @@ public class BusinessProvisionService {
                 (id, name, phone_no, email, gst_number, fssai_no, address, gst_type, licence_no, table_count, logo_url)
             VALUES
                 (1, ?, ?, ?, '', '', '', 0, '', 0,
-                 'https://res.cloudinary.com/dummy/image/upload/v1234567890/default_logo.png')
+                 'https://res.cloudinary.com/drmfryblr/image/upload/v1766157548/grtlfwdybe8b5tmin9h4.png')
             ON CONFLICT (id) DO NOTHING;
         """;
 
