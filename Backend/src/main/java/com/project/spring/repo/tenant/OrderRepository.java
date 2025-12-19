@@ -32,6 +32,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     // Get all table numbers where order is not completed
     @Query("SELECT DISTINCT o.tableNumber FROM Order o WHERE o.isCompleted = false")
-    List<Long> findAllOccupiedTableNumbers();
+    List<Integer> findAllOccupiedTableNumbers();
 
 }

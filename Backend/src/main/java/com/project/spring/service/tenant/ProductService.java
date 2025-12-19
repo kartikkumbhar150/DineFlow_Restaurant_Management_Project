@@ -13,6 +13,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,34 +32,48 @@ public class ProductService {
     @Autowired 
     private OrderItemRepository orderItemRepository;
 
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public Product createProduct(Product product) {
         return productRepository.save(product);
     }
 
+
+    @Cacheable(value = "products")
     public List<Product> getAllProducts() {
+        System.out.println(">>> DB HIT: getAllProducts");
         return productRepository.findAll();
     }
 
+
+    @Cacheable(value = "product", key = "#productId")
     public Product getProductById(Long productId) {
+        System.out.println(">>> DB HIT: getProductById " + productId);
         return productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + productId));
+                .orElseThrow(() ->
+                    new ResourceNotFoundException("Product not found with ID: " + productId));
     }
 
-    public Product updateProduct(Long productId, Product product) {
-        Product existingProduct = getProductById(productId);
-        existingProduct.setName(product.getName());
-        existingProduct.setPrice(product.getPrice());
-        existingProduct.setDescription(product.getDescription());
-        return productRepository.save(existingProduct);
-    }
 
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
+public Product updateProduct(Long productId, Product product) {
+    Product existing = getProductById(productId);
+    existing.setName(product.getName());
+    existing.setPrice(product.getPrice());
+    existing.setDescription(product.getDescription());
+    return productRepository.save(existing);
+}
+
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public void deleteProduct(Long productId) {
         productRepository.deleteById(productId);
     }
 
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public List<Product> createProduct(List<Product> products) {
         return productRepository.saveAll(products);
     }
+    
+
 
     public List<Product> processProductsFromImage(MultipartFile file) throws Exception {
         // Save uploaded image temporarily
@@ -96,6 +112,7 @@ public class ProductService {
         return products; // Return without saving
     }
     @Transactional
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public List<Product> processProductsFromCsv(MultipartFile file) throws Exception {
         File tempFile = File.createTempFile("upload-", ".xlsx");
         file.transferTo(tempFile);

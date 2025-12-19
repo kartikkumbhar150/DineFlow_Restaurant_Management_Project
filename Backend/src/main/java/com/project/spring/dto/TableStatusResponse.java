@@ -1,14 +1,14 @@
 package com.project.spring.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor   // 
+@AllArgsConstructor
 public class TableStatusResponse {
     
-    private Long tableNumber;
+    private long tableNumber;
     private boolean isOccupied;
-    public TableStatusResponse(Long tableNumber, boolean isOccupied) {
-       this.tableNumber = tableNumber;
-       this.isOccupied = isOccupied;
-    }
 }

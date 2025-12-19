@@ -15,7 +15,7 @@ public class TableStatus {
     private Long id;
 
     @Column(name = "table_number", unique = true, nullable = false)
-    private Long tableNumber;
+    private long tableNumber;
 
     @Column(name = "is_occupied")
     private boolean isOccupied;

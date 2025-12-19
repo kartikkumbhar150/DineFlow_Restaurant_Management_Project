@@ -1,16 +1,15 @@
 package com.project.spring.service.tenant;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import com.project.spring.dto.TableStatusResponse;
-import com.project.spring.repo.tenant.BusinessRepository;
 import com.project.spring.repo.tenant.OrderRepository;
-import com.project.spring.service.tenant.BusinessService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,38 +18,41 @@ import lombok.RequiredArgsConstructor;
 public class TableStatusService {
 
     private final OrderRepository orderRepository;
-    private final BusinessRepository businessRepository;
     private final BusinessService businessService;
 
     /**
-     * Check if a table is currently occupied
+     * Get status for all tables (Redis cached)
      */
-    public boolean isTableOccupied(Long tableNumber) {
-        return orderRepository.existsByTableNumberAndIsCompletedFalse(tableNumber);
+    @Cacheable(value = "tableStatus", key = "'default'", sync = true)
+    public List<TableStatusResponse> getAllTableStatus() {
+
+        Long tableCount = businessService.getTableCount();
+        if (tableCount == null || tableCount <= 0) {
+            return List.of();   // safe return
+        }
+
+        List<Integer> occupiedTables = orderRepository.findAllOccupiedTableNumbers();
+        if (occupiedTables == null) {
+            occupiedTables = List.of();
+        }
+
+        Set<Long> occupiedSet = occupiedTables.stream()
+                .map(Long::valueOf)
+                .collect(Collectors.toSet());
+
+        List<TableStatusResponse> result = new ArrayList<>();
+        for (long i = 1; i <= tableCount; i++) {
+            result.add(new TableStatusResponse(i, occupiedSet.contains(i)));
+        }
+
+        return result;
     }
 
     /**
-     * Get status for all tables
+     * Single table status derived from cached list
      */
-    public List<TableStatusResponse> getAllTableStatus() {
-
-    Long tableCount = businessService.getTableCount();
-    if (tableCount == null || tableCount <= 0) {
-        return List.of();
+    public boolean isTableOccupiedFromCache(long tableNumber) {
+        return getAllTableStatus().stream()
+                .anyMatch(t -> t.getTableNumber() == tableNumber && t.isOccupied());
     }
-
-    List<Long> occupiedTables = orderRepository.findAllOccupiedTableNumbers();
-    Set<Long> occupiedSet = new HashSet<>(occupiedTables);
-
-    List<TableStatusResponse> tableStatusList = new ArrayList<>();
-
-    for (long i = 1; i <= tableCount; i++) {
-        tableStatusList.add(
-            new TableStatusResponse(i, occupiedSet.contains(i))
-        );
-    }
-
-    return tableStatusList;
-}
-
 }

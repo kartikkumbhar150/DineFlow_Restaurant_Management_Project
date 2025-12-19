@@ -11,6 +11,8 @@ import com.project.spring.model.tenant.Product;
 import com.project.spring.repo.tenant.OrderRepository;
 import com.project.spring.repo.tenant.ProductRepository;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import jakarta.transaction.Transactional;
 
@@ -28,6 +30,7 @@ public class OrderService {
     /**
      * Creates a new order if table is not already occupied.
      */
+    @CacheEvict(value = "tableStatus", key = "'default'")
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
         Long tableNumber = request.getTableNumber();

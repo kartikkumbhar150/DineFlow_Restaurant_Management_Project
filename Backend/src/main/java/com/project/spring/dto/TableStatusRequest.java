@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class TableStatusRequest {
-    private Long tableNumber;
+    private long tableNumber;
     private boolean isOccupied;
 }

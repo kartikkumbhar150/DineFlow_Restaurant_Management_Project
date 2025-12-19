@@ -14,11 +14,20 @@ public class BusinessService {
 
     private final BusinessRepository businessRepository;
 
+    //  CACHE RAW INTEGER ONLY
     @Cacheable(value = "tableCount", key = "'default'")
-    public Long getTableCount() {
+    public Integer getTableCountCached() {
         return businessRepository.findTableCountByBusinessId(1L);
     }
-     @CacheEvict(value = "tableCount", key = "'default'")
+
+    // PUBLIC SAFE METHOD
+    public Long getTableCount() {
+        Integer count = getTableCountCached();
+        return count == null ? 0L : count.longValue();
+    }
+
+    // EVICT CACHE ON UPDATE
+    @CacheEvict(value = "tableCount", key = "'default'")
     public Business updateBusiness(Business business) {
         return businessRepository.save(business);
     }
