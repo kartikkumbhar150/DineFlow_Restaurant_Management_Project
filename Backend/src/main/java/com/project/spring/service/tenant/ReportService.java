@@ -2,8 +2,10 @@ package com.project.spring.service.tenant;
 
 import com.project.spring.dto.DailySalesDTO;
 import com.project.spring.dto.DateRangeSummaryDTO;
+import com.project.spring.dto.InventoryDTO;
 import com.project.spring.dto.DateRangeExpenseDTO;
 import com.project.spring.dto.ItemReportDTO;
+import com.project.spring.model.tenant.Inventory;
 import com.project.spring.repo.tenant.InvoiceRepository;
 import com.project.spring.repo.tenant.InventoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,27 +29,45 @@ public class ReportService {
 
     
     public DateRangeSummaryDTO buildSummary(LocalDate start, LocalDate end) {
-        String startStr = start.toString();
-        String endStr = end.toString();
 
-        double total = invoiceRepository.getSalesBetweenDates(startStr, endStr);
-        long count = invoiceRepository.countInvoicesBetweenDates(startStr, endStr);
-        double q = inventoryRepository.getTotalExpenseBetweenDates(startStr, endStr);
+    String startStr = start.toString();
+    String endStr = end.toString();
 
-        // Fetch only top 5 directly from DB
-        List<ItemReportDTO> topItems = invoiceRepository.getMostSellingItems(PageRequest.of(0, 12000));
+    // Sales (WITHOUT GST)
+    double totalSales = invoiceRepository.getSalesBetweenDates(startStr, endStr);
 
-        DateRangeSummaryDTO dto = new DateRangeSummaryDTO();
-        dto.setStartDate(start);
-        dto.setEndDate(end);
-        dto.setTotalSales(total);
-        dto.setInvoiceCount(count);
-        dto.setExpense(q);
-        dto.setAverageInvoiceValue(count > 0 ? total / count : 0);
-        dto.setMostSellingItems(topItems);
+    // Invoice count
+    long count = invoiceRepository.countInvoicesBetweenDates(startStr, endStr);
 
-        return dto;
-    }
+    // GST (SEPARATE)
+    DateRangeSummaryDTO gstDto =
+            invoiceRepository.getGstSummaryBetweenDates(startStr, endStr);
+
+    double totalGst = gstDto != null ? gstDto.getTotalGst() : 0;
+
+    // Top items
+    List<ItemReportDTO> topItems =
+            invoiceRepository.getMostSellingItems(PageRequest.of(0, 12000));
+
+    // Final DTO
+    DateRangeSummaryDTO dto = new DateRangeSummaryDTO();
+    dto.setStartDate(start);
+    dto.setEndDate(end);
+
+    dto.setTotalSales(totalSales);              // WITHOUT GST
+    dto.setInvoiceCount(count);
+    dto.setAverageInvoiceValue(
+            count > 0 ? totalSales / count : 0
+    );
+
+    dto.setTotalGst(totalGst);                  
+    dto.setTotalInvoiceValue(totalSales + totalGst); 
+
+    dto.setMostSellingItems(topItems);
+
+    return dto;
+}
+
     public DateRangeExpenseDTO expenseSummary(LocalDate start, LocalDate end){
     String startStr = start.toString();  // "2025-09-01"
     String endStr = end.toString();      // "2025-09-22"
@@ -58,6 +78,32 @@ public class ReportService {
     dto.setExpense(qs);
     return dto;
 }
+    public List<InventoryDTO> buildInventory(LocalDate start, LocalDate end) {
+
+    String startStr = start.toString(); // yyyy-MM-dd
+    String endStr = end.toString();
+
+    List<Inventory> inventoryList =
+            inventoryRepository.findInventoryBetweenDates(startStr, endStr);
+
+    List<InventoryDTO> dtoList = new ArrayList<>();
+
+    for (Inventory inv : inventoryList) {
+        InventoryDTO dto = new InventoryDTO(
+                inv.getId(),
+                inv.getItemName(),
+                inv.getQuantity(),
+                inv.getUnit(),
+                inv.getPrice(),
+                inv.getDate(),
+                inv.getTime()
+        );
+        dtoList.add(dto);
+    }
+
+    return dtoList;
+}
+
 
 
 

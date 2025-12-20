@@ -6,6 +6,7 @@ import com.project.spring.dto.DateRangeRequest;
 import com.project.spring.dto.DateRangeSummaryDTO;
 import com.project.spring.model.tenant.Invoice;
 import com.project.spring.repo.tenant.InvoiceRepository;
+import com.project.spring.dto.InventoryDTO;
 import com.project.spring.repo.tenant.InventoryRepository;
 import com.project.spring.service.tenant.ReportService;
 import lombok.RequiredArgsConstructor;
@@ -77,5 +78,17 @@ public class ReportController {
     public List<Map<String, Object>> getLast7DaysTimeSlotSales() {
         return dateRangeReportService.getLast7DaysSalesByTimeSlots();
     }
+    @PostMapping("/inventory")
+public ResponseEntity<?> getInventoryBetweenDates(@RequestBody DateRangeRequest range) {
+
+    List<InventoryDTO> inventoryList =
+            dateRangeReportService.buildInventory(
+                    range.getStartDate(),
+                    range.getEndDate()
+            );
+
+    return ResponseEntity.ok(inventoryList);
+}
+
 
 }

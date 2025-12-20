@@ -1,5 +1,6 @@
 package com.project.spring.repo.tenant;
 
+import com.project.spring.dto.DateRangeSummaryDTO;
 import com.project.spring.dto.ItemReportDTO;
 import com.project.spring.model.tenant.Invoice;
 import org.springframework.data.domain.Pageable;
@@ -49,6 +50,19 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.date BETWEEN :start AND :end")
     double getSalesBetweenDates(@Param("start") String start,
                                 @Param("end") String end);
+
+
+    @Query("""
+    SELECT new com.project.spring.dto.DateRangeSummaryDTO(
+        COALESCE(SUM(i.gstValue), 0)
+    )
+    FROM Invoice i
+    WHERE i.date BETWEEN :start AND :end
+""")
+DateRangeSummaryDTO getGstSummaryBetweenDates(@Param("start") String start,
+                                             @Param("end") String end);
+
+
 
     // Last 7 days sales including zeros for missing days
     @Query(value = """
