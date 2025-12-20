@@ -1,34 +1,141 @@
 package com.project.spring.service.tenant;
 
-import org.springframework.stereotype.Service;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import lombok.RequiredArgsConstructor;
-
+import com.project.spring.dto.BusinessDTO;
+import com.project.spring.dto.DashboardDetailsDTO;
 import com.project.spring.model.tenant.Business;
 import com.project.spring.repo.tenant.BusinessRepository;
+import com.project.spring.repo.tenant.TenantBusinessRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class BusinessService {
 
+    private static final Long DEFAULT_BUSINESS_ID = 1L;
+
+    private final TenantBusinessRepository tenantBusinessRepository;
     private final BusinessRepository businessRepository;
 
-    //  CACHE RAW INTEGER ONLY
-    @Cacheable(value = "tableCount", key = "'default'")
-    public Integer getTableCountCached() {
-        return businessRepository.findTableCountByBusinessId(1L);
+    // ================= DASHBOARD =================
+    @Cacheable(
+            value = "dashboard",
+            key = "'default'",
+            unless = "#result == null"
+    )
+    public DashboardDetailsDTO getDashboardDetails(String username, String role) {
+
+        Business business =
+                tenantBusinessRepository.findById(DEFAULT_BUSINESS_ID).orElse(null);
+
+        String businessName = business != null ? business.getName() : "";
+        String logoUrl = business != null ? business.getLogoUrl() : "";
+
+        return new DashboardDetailsDTO(username, role, businessName, logoUrl);
     }
 
-    // PUBLIC SAFE METHOD
+    // ================= GET BUSINESS =================
+    @Cacheable(
+            value = "business",
+            key = "'default'",
+            unless = "#result == null"
+    )
+    public BusinessDTO getBusiness() {
+
+        System.out.println("Fetching BUSINESS from DATABASE");
+
+        return tenantBusinessRepository
+                .findById(DEFAULT_BUSINESS_ID)
+                .map(this::toDTO)
+                .orElse(null);
+    }
+
+    // ================= SAVE / UPDATE =================
+    @CacheEvict(
+            value = { "business", "dashboard", "tableCount" },
+            key = "'default'"
+    )
+    public Business saveOrUpdateBusiness(Business newBusiness) {
+
+        return tenantBusinessRepository.findById(DEFAULT_BUSINESS_ID)
+                .map(existing -> {
+                    existing.setName(newBusiness.getName());
+                    existing.setGstNumber(newBusiness.getGstNumber());
+                    existing.setAddress(newBusiness.getAddress());
+                    existing.setLogoUrl(newBusiness.getLogoUrl());
+                    existing.setFssaiNo(newBusiness.getFssaiNo());
+                    existing.setLicenceNo(newBusiness.getLicenceNo());
+                    existing.setGstType(newBusiness.getGstType());
+                    existing.setPhoneNo(newBusiness.getPhoneNo());
+                    existing.setEmail(newBusiness.getEmail());
+                    existing.setTableCount(newBusiness.getTableCount());
+                    return tenantBusinessRepository.save(existing);
+                })
+                .orElseGet(() -> {
+                    newBusiness.setId(DEFAULT_BUSINESS_ID);
+                    return tenantBusinessRepository.save(newBusiness);
+                });
+    }
+
+    // ================= UPDATE LOGO (WRITE-THROUGH CACHE) =================
+    @CachePut(
+            value = "business",
+            key = "'default'",
+            unless = "#result == null"
+    )
+    @CacheEvict(
+            value = "dashboard",
+            key = "'default'"
+    )
+    public BusinessDTO updateLogo(String logoUrl) {
+
+        Business business = tenantBusinessRepository
+                .findById(DEFAULT_BUSINESS_ID)
+                .orElseThrow(() -> new IllegalStateException("Business not found"));
+
+        // 1️⃣ Update DB
+        business.setLogoUrl(logoUrl);
+        Business saved = tenantBusinessRepository.save(business);
+
+        // 2️⃣ Convert to DTO
+        BusinessDTO dto = toDTO(saved);
+
+        // 3️⃣ RETURN DTO → Spring writes this to Redis BEFORE response
+        return dto;
+    }
+
+    // ================= TABLE COUNT =================
+    @Cacheable(
+            value = "tableCount",
+            key = "'default'",
+            unless = "#result == null"
+    )
+    public Integer getTableCountCached() {
+        return businessRepository.findTableCountByBusinessId(DEFAULT_BUSINESS_ID);
+    }
+
     public Long getTableCount() {
         Integer count = getTableCountCached();
         return count == null ? 0L : count.longValue();
     }
 
-    // EVICT CACHE ON UPDATE
-    @CacheEvict(value = "tableCount", key = "'default'")
-    public Business updateBusiness(Business business) {
-        return businessRepository.save(business);
+    // ================= DTO MAPPER =================
+    public BusinessDTO toDTO(Business business) {
+        BusinessDTO dto = new BusinessDTO();
+        dto.setId(business.getId());
+        dto.setName(business.getName());
+        dto.setGstNumber(business.getGstNumber());
+        dto.setAddress(business.getAddress());
+        dto.setLogoUrl(business.getLogoUrl());
+        dto.setFssaiNo(business.getFssaiNo());
+        dto.setLicenceNo(business.getLicenceNo());
+        dto.setGstType(business.getGstType());
+        dto.setPhoneNo(business.getPhoneNo());
+        dto.setEmail(business.getEmail());
+        dto.setTableCount(business.getTableCount());
+        return dto;
     }
 }
