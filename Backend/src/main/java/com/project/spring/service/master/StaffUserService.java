@@ -8,12 +8,16 @@ import com.project.spring.model.tenant.Staff;
 import com.project.spring.repo.master.MasterBusinessRepository;
 import com.project.spring.repo.master.StaffUserRepository;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +29,21 @@ public class StaffUserService {
     private final JWTService jwtService;
     private final AuthenticationManager authManager;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
+    
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    public void blacklistToken(String token) {
+
+    // Avoid null / blank values
+    if (token == null || token.isBlank()) return;
+
+    // 🔐 Store blacklist flag with expiry
+    redisTemplate.opsForValue().set(
+            "blacklist:" + token,
+            "true",
+            Duration.ofHours(12)   // ideally: match your JWT expiry time
+    );
+}
 
     /**
      * Save staff user to master DB with encoded password.
@@ -134,4 +153,8 @@ public class StaffUserService {
             TenantContext.clear();
         }
     }
+    public void clearToken(String token) {
+    staffUserRepository.clearTokenByToken(token);
+}
+
 }

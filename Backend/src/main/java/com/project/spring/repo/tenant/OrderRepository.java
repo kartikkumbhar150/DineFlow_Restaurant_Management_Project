@@ -10,28 +10,52 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    @Query("SELECT DISTINCT o FROM Order o " +
-           "LEFT JOIN FETCH o.items i " +
-           "LEFT JOIN FETCH i.product " +
-           "WHERE o.tableNumber = :tableNumber AND o.isCompleted = false")
+    /**
+     * Fetch active order for a table INCLUDING items + product details.
+     * Uses fetch joins so only ONE query hits DB.
+     */
+    @Query("""
+        SELECT o 
+        FROM Order o
+        LEFT JOIN FETCH o.items i
+        LEFT JOIN FETCH i.product
+        WHERE o.tableNumber = :tableNumber
+          AND o.isCompleted = false
+    """)
     Optional<Order> findByIdWithItems(@Param("tableNumber") Long tableNumber);
 
-    // Find the latest incomplete order for a table
+    /**
+     * Fast lookup — uses existing index on tableNumber.
+     */
     Optional<Order> findFirstByTableNumberAndIsCompletedFalse(Long tableNumber);
 
-    //  For invoice generation
-    @Query("SELECT o FROM Order o JOIN FETCH o.items WHERE o.tableNumber = :tableNumber AND o.isCompleted = false")
+    /**
+     * Used when generating invoice — fetches order + items eagerly.
+     */
+    @Query("""
+        SELECT o
+        FROM Order o
+        JOIN FETCH o.items
+        WHERE o.tableNumber = :tableNumber
+          AND o.isCompleted = false
+    """)
     Optional<Order> findIncompleteOrderWithItems(@Param("tableNumber") Long tableNumber);
 
-    //  For table check before creating new order
+    /**
+     * Prevent duplicate open orders per table.
+     */
     boolean existsByTableNumberAndIsCompletedFalse(Long tableNumber);
 
-    // Get all table numbers (distinct)
+    /**
+     * All tables that ever had orders.
+     */
     @Query("SELECT DISTINCT o.tableNumber FROM Order o")
     List<Long> findAllDistinctTableNumbers();
 
-    // Get all table numbers where order is not completed
+    /**
+     * Only tables currently occupied (open orders).
+     * Using Long — avoids DB implicit casts.
+     */
     @Query("SELECT DISTINCT o.tableNumber FROM Order o WHERE o.isCompleted = false")
-    List<Integer> findAllOccupiedTableNumbers();
-
+    List<Long> findAllOccupiedTableNumbers();
 }

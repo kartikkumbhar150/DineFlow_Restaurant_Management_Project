@@ -46,15 +46,6 @@ public class StaffUserController {
         }
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<StaffDTO>> updateStaff(@PathVariable Long id, @RequestBody StaffDTO dto) {
-        try {
-            StaffDTO updated = staffService.updateStaff(id, dto);
-            return ResponseEntity.ok(new ApiResponse<>("success", "Updated successfully", updated));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(new ApiResponse<>("failure", e.getMessage(), null));
-        }
-    }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteStaff(@PathVariable Long id) {

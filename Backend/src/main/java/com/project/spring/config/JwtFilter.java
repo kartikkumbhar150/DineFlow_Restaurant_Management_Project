@@ -15,6 +15,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.io.IOException;
 
@@ -29,6 +30,9 @@ public class JwtFilter extends OncePerRequestFilter {
 
     @Autowired
     private StaffUserRepository staffUserRepository;
+
+    @Autowired
+    private RedisTemplate<String, Object> redisTemplate;   // 👈 added
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -53,6 +57,12 @@ public class JwtFilter extends OncePerRequestFilter {
 
             String token = authHeader.substring(7);
 
+            // 🚫 1️⃣ BLOCK BLACKLISTED TOKENS
+            if (Boolean.TRUE.equals(redisTemplate.hasKey("blacklist:" + token))) {
+                sendUnauthorized(response, "Token is blacklisted");
+                return;
+            }
+
             String username = jwtService.extractUserName(token);
             String dbName = jwtService.extractdbName(token);
 
@@ -63,7 +73,7 @@ public class JwtFilter extends OncePerRequestFilter {
             }
 
             if (username != null &&
-                SecurityContextHolder.getContext().getAuthentication() == null) {
+                    SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 StaffUser dbUser = staffUserRepository
                         .findByUserName(username)

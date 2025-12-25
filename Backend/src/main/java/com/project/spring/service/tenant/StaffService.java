@@ -10,7 +10,6 @@ import com.project.spring.model.master.MasterBusiness;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,12 +23,9 @@ public class StaffService {
     @Autowired
     private StaffUserService staffUserService;
 
-
-
     @Autowired
     private MasterBusinessRepository businessRepository;
 
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
     private String getCurrentTenantId() {
         String tenantId = TenantContext.getCurrentTenant();
@@ -40,11 +36,13 @@ public class StaffService {
     private Long getCurrentBusinessId() {
         String dbName = getCurrentTenantId();
         MasterBusiness business = businessRepository.findByDbName(dbName)
-            .orElseThrow(() -> new RuntimeException("Business not found for DB: " + dbName));
+                .orElseThrow(() -> new RuntimeException("Business not found for DB: " + dbName));
         return business.getId();
     }
 
+    // CREATE — tenant + master
     public StaffDTO createStaff(StaffDTO dto) {
+
         Staff staff = new Staff();
         staff.setName(dto.getName());
         staff.setUserName(dto.getUserName());
@@ -54,9 +52,9 @@ public class StaffService {
         Staff saved = staffRepository.saveAndFlush(staff);
 
         Long businessId = getCurrentBusinessId();
-        staffUserService.saveStaffToMaster(saved, businessId);
-        System.out.println("Saving staff to master for: " + saved.getUserName());
 
+        // save user in MASTER DB (password is encoded there)
+        staffUserService.saveStaffToMaster(saved, businessId);
 
         return mapToResponseDTO(saved);
     }
@@ -68,29 +66,30 @@ public class StaffService {
                 .collect(Collectors.toList());
     }
 
-    public StaffDTO updateStaff(Long id, StaffDTO dto) {
-        Staff staff = staffRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Staff not found"));
-
-        staff.setName(dto.getName());
-        staff.setUserName(dto.getUserName());
-        staff.setRole(dto.getRole());
-        if (dto.getPassword() != null && !dto.getPassword().isEmpty()) {
-            staff.setPassword(dto.getPassword());
-        }
-
-        Staff updated = staffRepository.save(staff);
-        Long businessId = getCurrentBusinessId();
-        staffUserService.saveStaffToMaster(updated, businessId);
-
-        return mapToResponseDTO(updated);
-    }
+    // DELETE — tenant + master
     public void deleteStaff(Long id) {
-        Staff staff = staffRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Staff not found"));
 
+        Staff staff = staffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Staff not found"));
+
+        String userName = staff.getUserName();
+
+        // delete tenant record
         staffRepository.deleteById(id);
-        staffUserService.deleteStaffFromMaster(staff.getId());
+
+        // lookup master user by username
+        var masterUser = staffUserService.findByUserName(userName);
+
+        if (masterUser != null) {
+            // delete from master DB using its real ID
+            staffUserService.deleteStaffFromMaster(masterUser.getId());
+        }
+    }
+
+    public StaffDTO getStaffById(Long id) {
+        Staff staff = staffRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Staff not found"));
+        return mapToResponseDTO(staff);
     }
 
     private StaffDTO mapToResponseDTO(Staff staff) {
@@ -101,10 +100,4 @@ public class StaffService {
         dto.setRole(staff.getRole());
         return dto;
     }
-    public StaffDTO getStaffById(Long id) {
-        Staff staff = staffRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Staff not found"));
-        return mapToResponseDTO(staff);
-    }
-    
 }

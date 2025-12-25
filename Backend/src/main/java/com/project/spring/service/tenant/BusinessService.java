@@ -6,9 +6,6 @@ import com.project.spring.model.tenant.Business;
 import com.project.spring.repo.tenant.BusinessRepository;
 import com.project.spring.repo.tenant.TenantBusinessRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,11 +18,6 @@ public class BusinessService {
     private final BusinessRepository businessRepository;
 
     // ================= DASHBOARD =================
-    @Cacheable(
-            value = "dashboard",
-            key = "'default'",
-            unless = "#result == null"
-    )
     public DashboardDetailsDTO getDashboardDetails(String username, String role) {
 
         Business business =
@@ -38,11 +30,6 @@ public class BusinessService {
     }
 
     // ================= GET BUSINESS =================
-    @Cacheable(
-            value = "business",
-            key = "'default'",
-            unless = "#result == null"
-    )
     public BusinessDTO getBusiness() {
 
         System.out.println("Fetching BUSINESS from DATABASE");
@@ -54,10 +41,6 @@ public class BusinessService {
     }
 
     // ================= SAVE / UPDATE =================
-    @CacheEvict(
-            value = { "business", "dashboard", "tableCount" },
-            key = "'default'"
-    )
     public Business saveOrUpdateBusiness(Business newBusiness) {
 
         return tenantBusinessRepository.findById(DEFAULT_BUSINESS_ID)
@@ -80,39 +63,20 @@ public class BusinessService {
                 });
     }
 
-    // ================= UPDATE LOGO (WRITE-THROUGH CACHE) =================
-    @CachePut(
-            value = "business",
-            key = "'default'",
-            unless = "#result == null"
-    )
-    @CacheEvict(
-            value = "dashboard",
-            key = "'default'"
-    )
+    // ================= UPDATE LOGO =================
     public BusinessDTO updateLogo(String logoUrl) {
 
         Business business = tenantBusinessRepository
                 .findById(DEFAULT_BUSINESS_ID)
                 .orElseThrow(() -> new IllegalStateException("Business not found"));
 
-        // 1️⃣ Update DB
         business.setLogoUrl(logoUrl);
         Business saved = tenantBusinessRepository.save(business);
 
-        // 2️⃣ Convert to DTO
-        BusinessDTO dto = toDTO(saved);
-
-        // 3️⃣ RETURN DTO → Spring writes this to Redis BEFORE response
-        return dto;
+        return toDTO(saved);
     }
 
     // ================= TABLE COUNT =================
-    @Cacheable(
-            value = "tableCount",
-            key = "'default'",
-            unless = "#result == null"
-    )
     public Integer getTableCountCached() {
         return businessRepository.findTableCountByBusinessId(DEFAULT_BUSINESS_ID);
     }

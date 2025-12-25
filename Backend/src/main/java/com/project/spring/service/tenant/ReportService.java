@@ -47,7 +47,8 @@ public class ReportService {
 
     // Top items
     List<ItemReportDTO> topItems =
-            invoiceRepository.getMostSellingItems(PageRequest.of(0, 12000));
+        invoiceRepository.getItemsQuantityBetweenDates(startStr, endStr);
+
 
     // Final DTO
     DateRangeSummaryDTO dto = new DateRangeSummaryDTO();

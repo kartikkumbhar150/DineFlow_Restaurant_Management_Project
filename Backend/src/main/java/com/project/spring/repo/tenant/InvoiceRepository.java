@@ -28,6 +28,24 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     List<Invoice> findInvoicesBetweenDates(@Param("startDate") String startDate,
                                            @Param("endDate") String endDate);
 
+// Items quantity between dates
+    @Query("""
+    SELECT new com.project.spring.dto.ItemReportDTO(
+        o.itemName,
+        SUM(o.quantity)
+    )
+    FROM OrderItem o
+    JOIN o.order ord
+    JOIN ord.invoice i
+    WHERE i.date BETWEEN :start AND :end
+    GROUP BY o.itemName
+    ORDER BY SUM(o.quantity) DESC
+""")
+List<ItemReportDTO> getItemsQuantityBetweenDates(
+        @Param("start") String start,
+        @Param("end") String end);
+
+
     // Find invoice by number
     @Query("SELECT i FROM Invoice i WHERE i.invoiceNumber = :invoiceNumber")
     Optional<Invoice> findByInvoiceNumber(@Param("invoiceNumber") Long invoiceNumber);
