@@ -17,24 +17,35 @@ public class KotStore {
     private final List<KotItemDTO> kotQueue = new CopyOnWriteArrayList<>();
     private final Sinks.Many<List<KotItemDTO>> kotSink = Sinks.many().replay().latest();
 
-    // Add order items to KOT queue and emit
+   
+    //Remove all pending KOT entries for a specific TABLE
+    public void removeByTable(Long tableNumber) {
+        kotQueue.removeIf(k -> k.getTableNumber().equals(tableNumber) && !k.isCompleted());
+        emitUpdatedKot();
+    }
+
+    //Add order items to KOT queue and emit
     public void addOrder(Order order) {
+
         for (OrderItem item : order.getItems()) {
+
             KotItemDTO kot = new KotItemDTO();
-            kot.setOrderId(order.getId());
+            kot.setOrderId(item.getId()); 
             kot.setItemName(item.getItemName());
             kot.setQuantity(item.getQuantity());
             kot.setTableNumber(order.getTableNumber());
             kot.setCompleted(false);
+
             kotQueue.add(kot);
         }
+
         emitUpdatedKot();
     }
 
-    // Mark all KOT items for the given table number as completed
-    public void markCompletedByTable(Long tableNumber) {
+    //Mark all KOT items for the given TABLE as completed
+    public void markCompletedByTable(Long orderId ) {
         for (KotItemDTO item : kotQueue) {
-            if (item.getTableNumber().equals(tableNumber) && !item.isCompleted()) {
+            if (item.getTableNumber().equals(orderId) && !item.isCompleted()) {
                 item.setCompleted(true);
             }
         }
@@ -47,11 +58,15 @@ public class KotStore {
     }
 
     public List<KotItemDTO> getAllPending() {
-        return kotQueue.stream().filter(k -> !k.isCompleted()).collect(Collectors.toList());
+        return kotQueue.stream()
+                .filter(k -> !k.isCompleted())
+                .collect(Collectors.toList());
     }
 
     public List<KotItemDTO> getAllCompleted() {
-        return kotQueue.stream().filter(KotItemDTO::isCompleted).collect(Collectors.toList());
+        return kotQueue.stream()
+                .filter(KotItemDTO::isCompleted)
+                .collect(Collectors.toList());
     }
 
     // Emit updated list to SSE subscribers

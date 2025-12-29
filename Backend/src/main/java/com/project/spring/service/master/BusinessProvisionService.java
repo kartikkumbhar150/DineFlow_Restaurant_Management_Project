@@ -176,7 +176,7 @@ public class BusinessProvisionService {
             -- ======================
 
             -- Invoices
-            CREATE INDEX IF NOT EXISTS idx_invoice_date       ON invoice ((date::date));
+            CREATE INDEX IF NOT EXISTS idx_invoice_date       ON invoice (date);
             CREATE INDEX IF NOT EXISTS idx_invoice_number    ON invoice (invoice_number);
             CREATE INDEX IF NOT EXISTS idx_invoice_time      ON invoice ("time");
             CREATE INDEX IF NOT EXISTS idx_invoice_business  ON invoice (business_id);
@@ -197,7 +197,7 @@ public class BusinessProvisionService {
             CREATE INDEX idx_orders_active_table    ON orders (table_number, is_completed);
 
             -- Inventory
-            CREATE INDEX IF NOT EXISTS idx_inventory_date    ON inventory ((date::date));
+            CREATE INDEX IF NOT EXISTS idx_inventory_date    ON inventory (date);
         """;
 
         String[] queries = schema.split(";");

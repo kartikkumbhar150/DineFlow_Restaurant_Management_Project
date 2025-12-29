@@ -31,9 +31,6 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final KotStore kotStore;
 
-    /**
-     * Create order → clear table status + order cache
-     */
     @CacheEvict(value = { "tableStatus", "order" }, allEntries = true)
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
@@ -74,14 +71,12 @@ public class OrderService {
         order.setItems(orderItems);
         Order savedOrder = orderRepository.save(order);
 
+        // Send KOT for new order
         kotStore.addOrder(savedOrder);
 
         return mapToOrderResponse(savedOrder);
     }
 
-    /**
-     * Fetch order — Redis cache (key = orderId)
-     */
     @Cacheable(value = "order", key = "#orderId")
     @Transactional
     public OrderResponse getOrderById(Long orderId) {
@@ -92,9 +87,6 @@ public class OrderService {
         return mapToOrderResponse(order);
     }
 
-    /**
-     * Update order — refresh cache entry + clear tableStatus
-     */
     @CachePut(value = "order", key = "#orderId")
     @CacheEvict(value = "tableStatus", key = "'default'")
     @Transactional
@@ -136,14 +128,13 @@ public class OrderService {
 
         Order updatedOrder = orderRepository.save(existingOrder);
 
+        // ⭐ IMPORTANT: Replace KOT list for this TABLE — only latest items stay
+        kotStore.removeByTable(updatedOrder.getTableNumber());
         kotStore.addOrder(updatedOrder);
 
         return mapToOrderResponse(updatedOrder);
     }
 
-    /**
-     * Delete order — remove its cache + refresh tables
-     */
     @CacheEvict(value = { "order", "tableStatus" }, allEntries = true)
     @Transactional
     public boolean deleteOrder(Long orderId) {
@@ -154,9 +145,6 @@ public class OrderService {
         return false;
     }
 
-    /**
-     * Mapper
-     */
     private OrderResponse mapToOrderResponse(Order order) {
 
         OrderResponse response = new OrderResponse();
