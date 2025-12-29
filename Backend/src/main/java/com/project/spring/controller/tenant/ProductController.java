@@ -6,10 +6,19 @@ import com.project.spring.service.tenant.ProductService;
 
 import lombok.RequiredArgsConstructor;
 
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import java.io.ByteArrayOutputStream;
 
 import java.util.List;
 
@@ -151,4 +160,45 @@ public ResponseEntity<?> uploadCsv(@RequestParam("file") MultipartFile file) {
             );
         }
     }
+
+    // excel file ka hai ye 
+
+    @GetMapping("/export/xlsx")
+public ResponseEntity<byte[]> exportProductsToExcel() {
+    try (Workbook workbook = new XSSFWorkbook()) {
+        Sheet sheet = workbook.createSheet("Products");
+
+        // Header row
+        Row header = sheet.createRow(0);
+        header.createCell(0).setCellValue("item");
+        header.createCell(1).setCellValue("price");
+        header.createCell(2).setCellValue("category");
+
+        // Fetch products
+        List<Product> products = productService.getAllProducts();
+
+        int rowIdx = 1;
+        for (Product product : products) {
+            Row row = sheet.createRow(rowIdx++);
+            row.createCell(0).setCellValue(product.getName());        // adjust if your field is different
+            row.createCell(1).setCellValue(product.getPrice());
+            row.createCell(2).setCellValue(product.getCategory());
+        }
+
+        // Write to byte array
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        workbook.write(out);
+
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=products.xlsx")
+                .header("Content-Type",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .body(out.toByteArray());
+
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(null);
+    }
+}
+
 }

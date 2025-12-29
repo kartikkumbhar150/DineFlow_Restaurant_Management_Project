@@ -9,6 +9,7 @@ import 'package:projectx/views/widgets/button_tile.dart';
 import 'package:projectx/views/widgets/single_item.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'add_item_page.dart';
+import 'package:projectx/utils/logout.dart';
 
 class ItemsPage extends StatefulWidget {
   const ItemsPage({super.key});

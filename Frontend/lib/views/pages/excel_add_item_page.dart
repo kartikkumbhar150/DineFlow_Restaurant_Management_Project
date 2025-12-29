@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:file_saver/file_saver.dart'; 
 import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 
 class ExcelBulkUploadPage extends StatefulWidget {
   const ExcelBulkUploadPage({super.key});
@@ -29,7 +30,64 @@ class _ExcelBulkUploadPageState extends State<ExcelBulkUploadPage> {
     {'item': 'Green Tea', 'price': 50.0, 'category': 'Beverages'},
     {'item': 'Paneer Tikka', 'price': 180.0, 'category': 'Starters'},
   ];
+  //
+  Future<void> _downloadCurrentProducts() async {
+    try {
+      setState(() => _isProcessing = true);
 
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token') ?? '';
+      final url = AppConfig.backendUrl;
+
+      final response = await http.get(
+        Uri.parse('$url/api/v1/products/export/xlsx'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final bytes = response.bodyBytes;
+
+        // SAME BEHAVIOUR as template/sample
+        final dir = await FilePicker.platform.getDirectoryPath();
+
+        if (dir != null) {
+          final file = File("$dir/current_products.xlsx");
+          await file.writeAsBytes(bytes);
+
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("File saved at: ${file.path}"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Save cancelled."),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      } else {
+        throw Exception(
+            "Failed ${response.statusCode}: ${response.body}");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error downloading file: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  //
   Future<void> _downloadTemplate({bool withSamples = false}) async {
   try {
     // Create Excel file
@@ -74,7 +132,7 @@ class _ExcelBulkUploadPageState extends State<ExcelBulkUploadPage> {
 
     final fileName = withSamples ? 'items_sample.xlsx' : 'items_template.xlsx';
 
-    // ✅ Let user choose folder to save file
+    // Let user choose folder to save file
     final outputDir = await FilePicker.platform.getDirectoryPath();
 
     if (outputDir != null) {
@@ -454,7 +512,7 @@ class _ExcelBulkUploadPageState extends State<ExcelBulkUploadPage> {
               const SizedBox(height: 16),
 
               _buildActionButton(
-                title: 'Download Template',
+                title: 'Download Blank Template',
                 subtitle: 'Get blank Excel template with correct format.',
                 icon: Icons.download_rounded,
                 onTap: () => _downloadTemplate(withSamples: false),
@@ -468,6 +526,14 @@ class _ExcelBulkUploadPageState extends State<ExcelBulkUploadPage> {
                 onTap: () => _downloadTemplate(withSamples: true),
                 color: Colors.green.shade600,
               ),
+              _buildActionButton(
+                title: 'Download Current Products',
+                subtitle: 'Download all items with item, price & category from your current menu.',
+                icon: Icons.file_download_rounded,
+                onTap: _downloadCurrentProducts,
+                color: Colors.purple.shade600,
+              ),
+
 
               const SizedBox(height: 24),
 

@@ -451,6 +451,21 @@ class _SalesReportPageState extends State<SalesReportPage> {
                       Icons.shopping_cart_rounded,
                       Colors.purple.shade600,
                     ),
+                    // ✅ NEW: Total GST
+                    _buildStatCard(
+                      'Total GST',
+                      '₹${_reportData!['totalGst'].toStringAsFixed(2)}',
+                      Icons.account_balance_wallet_rounded,
+                      Colors.red.shade600,
+                    ),
+
+                    // ✅ NEW: Total Invoice Value
+                    _buildStatCard(
+                      'Total Invoice Value',
+                      '₹${_reportData!['totalInvoiceValue'].toStringAsFixed(2)}',
+                      Icons.payments_rounded,
+                      Colors.teal.shade600,
+                    ),
                   ],
                 ),
 

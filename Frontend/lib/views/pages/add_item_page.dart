@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:projectx/config.dart';
 import 'dart:convert';
-
+import 'package:projectx/services/api_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:projectx/utils/logout.dart';  //  ADD THIS
 
 class AddItemPage extends StatefulWidget {
   final List<String> categories;
@@ -19,22 +20,24 @@ class _AddItemPageState extends State<AddItemPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
-  final TextEditingController _customCategoryController = TextEditingController();
+  final TextEditingController _customCategoryController =
+  TextEditingController();
 
   String? selectedCategory;
   bool isSubmitting = false;
   bool isCustomCategory = false;
 
+  // AUTO LOGOUT (401 par)
+
+
   Future<void> _submitItem() async {
     if (!_formKey.currentState!.validate()) return;
-    final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token') ?? '';
+
     final name = _nameController.text.trim();
     final description = _descController.text.trim();
     final price = double.tryParse(_priceController.text.trim());
-    final category = isCustomCategory
-        ? _customCategoryController.text.trim()
-        : selectedCategory ?? '';
+    final category =
+    isCustomCategory ? _customCategoryController.text.trim() : selectedCategory ?? '';
 
     if (price == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -46,28 +49,36 @@ class _AddItemPageState extends State<AddItemPage> {
     setState(() => isSubmitting = true);
 
     try {
-      final url = AppConfig.backendUrl;
-      final response = await http.post(
-        Uri.parse('$url/api/v1/products'),
-        headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-        body: jsonEncode({
+      final response = await authPost(
+        '/api/v1/products',
+        {
           "name": name,
           "description": description,
           "price": price,
           "category": category,
-          "subCategory":category,
-          "imageUrl":""
-        }),
+          "subCategory": category,
+          "imageUrl": ""
+        },
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         Navigator.pop(context, true);
-      } else {
+      }
+
+      // TOKEN EXPIRED
+      else if (response.statusCode == 401) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to add item: ${response.statusCode}")),
+          const SnackBar(content: Text("Session expired — logging out")),
+        );
+        await forceLogout();
+      }
+
+      // OTHER ERRORS
+      else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to add item: ${response.statusCode}"),
+          ),
         );
       }
     } catch (e) {
@@ -95,20 +106,21 @@ class _AddItemPageState extends State<AddItemPage> {
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Item Name'),
                 validator: (val) =>
-                    val == null || val.isEmpty ? 'Enter item name' : null,
+                val == null || val.isEmpty ? 'Enter item name' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descController,
                 decoration: const InputDecoration(labelText: 'Description'),
                 validator: (val) =>
-                    val == null || val.isEmpty ? 'Enter description' : null,
+                val == null || val.isEmpty ? 'Enter description' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _priceController,
                 decoration: const InputDecoration(labelText: 'Price'),
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
                 validator: (val) {
                   final p = double.tryParse(val ?? '');
                   if (p == null || p <= 0) return 'Enter valid price';
@@ -117,7 +129,6 @@ class _AddItemPageState extends State<AddItemPage> {
               ),
               const SizedBox(height: 16),
 
-              // Category dropdown
               DropdownButtonFormField<String>(
                 value: selectedCategory,
                 hint: const Text('Select Category'),
@@ -128,13 +139,13 @@ class _AddItemPageState extends State<AddItemPage> {
                   });
                 },
                 items: [
-                  ...widget.categories.map((category) {
-                    return DropdownMenuItem<String>(
+                  ...widget.categories.map(
+                        (category) => DropdownMenuItem(
                       value: category,
                       child: Text(category),
-                    );
-                  }),
-                  const DropdownMenuItem<String>(
+                    ),
+                  ),
+                  const DropdownMenuItem(
                     value: 'Other',
                     child: Text('Other (Enter new category)'),
                   ),
@@ -154,9 +165,11 @@ class _AddItemPageState extends State<AddItemPage> {
                 TextFormField(
                   controller: _customCategoryController,
                   decoration:
-                      const InputDecoration(labelText: 'Custom Category'),
+                  const InputDecoration(labelText: 'Custom Category'),
                   validator: (val) =>
-                      val == null || val.trim().isEmpty ? 'Enter category' : null,
+                  val == null || val.trim().isEmpty
+                      ? 'Enter category'
+                      : null,
                 ),
               ],
 

@@ -49,12 +49,14 @@ class _GenerateInvoicePageState extends State<GenerateInvoicePage> {
         final responseData = jsonDecode(response.body);
         final invoiceId = responseData['data']['invoiceNumber'];
 
-        Navigator.push(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
             builder: (context) => InvoicePage(invoiceId: invoiceId),
           ),
+              (route) => route.isFirst,   // keep only the first (home) route
         );
+
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -99,7 +101,7 @@ class _GenerateInvoicePageState extends State<GenerateInvoicePage> {
                 keyboardType: TextInputType.phone,
                 validator: (val) {
                   if (val == null || val.isEmpty) {
-                    return 'Enter phone number';
+                    return null;
                   }
                   if (val.length < 10) {
                     return 'Enter valid phone number';

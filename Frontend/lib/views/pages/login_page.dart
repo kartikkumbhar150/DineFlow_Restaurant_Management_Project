@@ -48,6 +48,7 @@ class _LoginPageState extends State<LoginPage> {
     final token = prefs.getString('auth_token');
 
     if (token == null || token.isEmpty) return false;
+
     final url = AppConfig.backendUrl;
     final response = await http.get(
       Uri.parse('$url/api/v1/business/dashboard/showMe'),
@@ -66,11 +67,15 @@ class _LoginPageState extends State<LoginPage> {
       roleNotifier.value = data['role'];
       userPhoneNotifier.value = data['username'];
 
+      //  ADD THESE LINES
+      await prefs.setString('user_role', data['role']);
+
       return true;
     }
 
     return false;
   }
+
 
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -138,6 +143,16 @@ class _LoginPageState extends State<LoginPage> {
             MaterialPageRoute(builder: (context) => const WidgetTree()),
           );
         }
+      }
+      else {
+        //  NEW PART
+        setState(() {
+          _backendMessage =
+          (json['message']?.toString().toLowerCase().contains("invalid") ??
+              false)
+              ? "Invalid credentials"
+              : "Invalid credentials";
+        });
       }
     } catch (e) {
       setState(() {

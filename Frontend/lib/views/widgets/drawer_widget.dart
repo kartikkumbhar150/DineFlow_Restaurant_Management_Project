@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:projectx/data/notifiers.dart';
+import 'package:projectx/views/pages/expense_report_page.dart';
 import 'package:projectx/views/pages/kot_page.dart';
 import 'package:projectx/views/pages/most_selling_items_page.dart';
 import 'package:projectx/views/pages/sales_report_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:projectx/views/pages/login_page.dart';
+import 'package:projectx/config.dart';
 
 class DrawerWidget extends StatelessWidget {
   const DrawerWidget({super.key});
@@ -210,6 +212,25 @@ class DrawerWidget extends StatelessWidget {
                                 ),
                               );
                             }
+                          : disabledTap,
+                      textColor: isAdmin
+                          ? Colors.grey.shade800
+                          : Colors.grey.shade400,
+                    ),
+
+                    // ---------------- Expense Report ---------------
+                    _buildMenuItem(
+                      icon: Icons.trending_up_rounded,
+                      title: "Expense Report",
+                      onTap: isAdmin
+                          ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ExpenseReportPage(),
+                          ),
+                        );
+                      }
                           : disabledTap,
                       textColor: isAdmin
                           ? Colors.grey.shade800

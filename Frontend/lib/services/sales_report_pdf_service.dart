@@ -40,7 +40,10 @@ class SalesReportPdfGenerator {
               pw.Divider(),
 
               // --- Summary Metrics ---
-              pw.Text("Summary", style: pw.TextStyle(font: boldFont, fontSize: 16)),
+              pw.Text(
+                "Summary",
+                style: pw.TextStyle(font: boldFont, fontSize: 16),
+              ),
               pw.SizedBox(height: 8),
               pw.Table(
                 border: pw.TableBorder.all(width: 0.2, color: PdfColors.grey400),
@@ -49,16 +52,48 @@ class SalesReportPdfGenerator {
                   1: pw.FlexColumnWidth(2),
                 },
                 children: [
-                  _row("Total Sales", "₹${indianFormat.format(data['totalSales'])}", font, boldFont),
-                  _row("Total Invoices", "${data['invoiceCount']}", font, boldFont),
-                  _row("Average Invoice", "₹${indianFormat.format(data['averageInvoiceValue'])}", font, boldFont),
-                  _row("Expenses", "₹${indianFormat.format(data['expense'])}", font, boldFont),
+                  _row(
+                    "Total Sales",
+                    "₹${indianFormat.format(data['totalSales'])}",
+                    font,
+                    boldFont,
+                  ),
+                  _row(
+                    "Total Invoices",
+                    "${data['invoiceCount']}",
+                    font,
+                    boldFont,
+                  ),
+                  _row(
+                    "Average Invoice",
+                    "₹${indianFormat.format(data['averageInvoiceValue'])}",
+                    font,
+                    boldFont,
+                  ),
+
+                  // ✅ ADDED BACKEND FIELDS (ONLY ADDITION)
+                  _row(
+                    "Total GST",
+                    "₹${indianFormat.format(data['totalGst'])}",
+                    font,
+                    boldFont,
+                  ),
+                  _row(
+                    "Total Invoice Amount",
+                    "₹${indianFormat.format(data['totalInvoiceValue'])}",
+                    font,
+                    boldFont,
+                  ),
                 ],
               ),
+
               pw.SizedBox(height: 20),
 
               // --- Most Selling Items ---
-              pw.Text("Items Sold", style: pw.TextStyle(font: boldFont, fontSize: 16)),
+              pw.Text(
+                "Items Sold",
+                style: pw.TextStyle(font: boldFont, fontSize: 16),
+              ),
               pw.SizedBox(height: 8),
               pw.TableHelper.fromTextArray(
                 headers: ['#', 'Item Name', 'Total Quantity'],
@@ -66,14 +101,18 @@ class SalesReportPdfGenerator {
                 cellStyle: pw.TextStyle(font: font, fontSize: 11),
                 data: List.generate(
                   (data['mostSellingItems'] as List).length,
-                  (i) => [
+                      (i) => [
                     (i + 1).toString(),
                     data['mostSellingItems'][i]['itemName'],
                     data['mostSellingItems'][i]['totalQuantity'].toString(),
                   ],
                 ),
-                border: pw.TableBorder.all(width: 0.2, color: PdfColors.grey400),
-                headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                border: pw.TableBorder.all(
+                  width: 0.2,
+                  color: PdfColors.grey400,
+                ),
+                headerDecoration:
+                const pw.BoxDecoration(color: PdfColors.grey300),
                 cellAlignment: pw.Alignment.centerLeft,
               ),
               pw.Spacer(),
@@ -81,7 +120,11 @@ class SalesReportPdfGenerator {
               pw.Center(
                 child: pw.Text(
                   "Generated on ${DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now())}",
-                  style: pw.TextStyle(font: font, fontSize: 10, color: PdfColors.grey600),
+                  style: pw.TextStyle(
+                    font: font,
+                    fontSize: 10,
+                    color: PdfColors.grey600,
+                  ),
                 ),
               ),
             ],
@@ -93,16 +136,27 @@ class SalesReportPdfGenerator {
     return pdf.save();
   }
 
-  static pw.TableRow _row(String label, String value, pw.Font font, pw.Font boldFont) {
+  static pw.TableRow _row(
+      String label,
+      String value,
+      pw.Font font,
+      pw.Font boldFont,
+      ) {
     return pw.TableRow(
       children: [
         pw.Padding(
           padding: const pw.EdgeInsets.all(6),
-          child: pw.Text(label, style: pw.TextStyle(font: font, fontSize: 11)),
+          child: pw.Text(
+            label,
+            style: pw.TextStyle(font: font, fontSize: 11),
+          ),
         ),
         pw.Padding(
           padding: const pw.EdgeInsets.all(6),
-          child: pw.Text(value, style: pw.TextStyle(font: boldFont, fontSize: 11)),
+          child: pw.Text(
+            value,
+            style: pw.TextStyle(font: boldFont, fontSize: 11),
+          ),
         ),
       ],
     );
@@ -112,11 +166,14 @@ class SalesReportPdfGenerator {
     final pdfBytes = await _generatePdf(data);
     await Printing.sharePdf(
       bytes: pdfBytes,
-      filename: 'sales-report-${data["startDate"]}-${data["endDate"]}.pdf',
+      filename:
+      'sales-report-${data["startDate"]}-${data["endDate"]}.pdf',
     );
   }
 
   static Future<void> generateAndPrint(Map<String, dynamic> data) async {
-    await Printing.layoutPdf(onLayout: (format) => _generatePdf(data));
+    await Printing.layoutPdf(
+      onLayout: (format) => _generatePdf(data),
+    );
   }
 }

@@ -6,6 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:projectx/config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'verify_items_page.dart';
+import 'package:projectx/services/api_client.dart';
+import 'package:projectx/utils/logout.dart';
+
 
 class BulkAddItemPage extends StatefulWidget {
   const BulkAddItemPage({super.key});
@@ -31,28 +34,28 @@ class _BulkAddItemPageState extends State<BulkAddItemPage> {
   Future<void> _uploadImage() async {
     if (_selectedImage == null) return;
 
-    setState(() {
-      _isUploading = true;
-    });
-
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("auth_token");
-    final url = AppConfig.backendUrl;
-    var uri = Uri.parse("$url/api/v1/products/bulk/upload");
-    var request = http.MultipartRequest("POST", uri);
-
-    if (token != null) {
-      request.headers['Authorization'] = 'Bearer $token';
-    }
-
-    request.files.add(await http.MultipartFile.fromPath("file", _selectedImage!.path));
+    setState(() => _isUploading = true);
 
     try {
-      var response = await request.send();
-      var responseBody = await response.stream.bytesToString();
+      var request = http.MultipartRequest(
+        "POST",
+        Uri.parse("${AppConfig.backendUrl}/api/v1/products/bulk/upload"),
+      );
+
+      request.files.add(
+        await http.MultipartFile.fromPath("file", _selectedImage!.path),
+      );
+
+      final response = await authMultipart(
+        "/api/v1/products/bulk/upload",
+        request,
+      );
+
+      final responseBody = await response.stream.bytesToString();
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(responseBody);
+
         if (decoded["status"] == "success" && decoded["data"] != null) {
           Navigator.push(
             context,
@@ -70,7 +73,16 @@ class _BulkAddItemPageState extends State<BulkAddItemPage> {
             ),
           );
         }
-      } else {
+      }
+
+      else if (response.statusCode == 401) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Session expired — logging out")),
+        );
+        await forceLogout();
+      }
+
+      else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Upload failed: ${response.statusCode}"),
@@ -86,11 +98,10 @@ class _BulkAddItemPageState extends State<BulkAddItemPage> {
         ),
       );
     } finally {
-      setState(() {
-        _isUploading = false;
-      });
+      if (mounted) setState(() => _isUploading = false);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -153,48 +164,48 @@ class _BulkAddItemPageState extends State<BulkAddItemPage> {
                 ),
                 child: _selectedImage != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          _selectedImage!,
-                          width: double.infinity,
-                          height: 280,
-                          fit: BoxFit.cover,
-                        ),
-                      )
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.file(
+                    _selectedImage!,
+                    width: double.infinity,
+                    height: 280,
+                    fit: BoxFit.cover,
+                  ),
+                )
                     : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Icon(
-                              Icons.image_outlined,
-                              size: 48,
-                              color: Colors.grey.shade400,
-                            ),
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            "No image selected",
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade500,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            "Choose a clear image of your menu",
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade400,
-                            ),
-                          ),
-                        ],
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
                       ),
+                      child: Icon(
+                        Icons.image_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      "No image selected",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      "Choose a clear image of your menu",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
               SizedBox(height: 32),
@@ -266,8 +277,8 @@ class _BulkAddItemPageState extends State<BulkAddItemPage> {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: _selectedImage == null 
-                      ? Colors.grey.shade300 
+                  color: _selectedImage == null
+                      ? Colors.grey.shade300
                       : Colors.blue.shade500,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: _selectedImage != null ? [
@@ -297,18 +308,18 @@ class _BulkAddItemPageState extends State<BulkAddItemPage> {
                             ),
                             child: _isUploading
                                 ? SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
                                 : Icon(
-                                    Icons.cloud_upload_rounded,
-                                    size: 22,
-                                    color: Colors.white,
-                                  ),
+                              Icons.cloud_upload_rounded,
+                              size: 22,
+                              color: Colors.white,
+                            ),
                           ),
                           SizedBox(width: 16),
                           Expanded(
@@ -369,23 +380,23 @@ class _BulkAddItemPageState extends State<BulkAddItemPage> {
                             ),
                           ),
                         ],
-                        
+
                       ),
                       const SizedBox(height: 12,),
-                Text(
-                          "Instructions:\n"
-                          "1) Use .jpg images only\n"
-                          "2) Max size of image is 10 mb",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.orange.shade700,
-                            fontWeight: FontWeight.w500,
-                          ),
+                      Text(
+                        "Instructions:\n"
+                            "1) Use .jpg images only\n"
+                            "2) Max size of image is 10 mb",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.orange.shade700,
+                          fontWeight: FontWeight.w500,
                         ),
+                      ),
                     ],
                   ),
                 ),
-                
+
 
               ],
 

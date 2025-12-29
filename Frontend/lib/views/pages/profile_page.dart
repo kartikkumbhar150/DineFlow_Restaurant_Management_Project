@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart';
+import 'package:projectx/config.dart';
 import 'package:projectx/data/notifiers.dart';
 import 'package:projectx/views/pages/change_business_details_page.dart';
 import 'package:projectx/views/pages/login_page.dart';
 import 'package:projectx/views/pages/staff_page.dart';
 import 'package:projectx/views/widgets/button_tile.dart';
+import 'package:projectx/views/pages/privacy_policy.dart';
+import 'package:projectx/views/pages/contact_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -17,6 +23,7 @@ class ProfilePage extends StatelessWidget {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              // ---------- HEADER ----------
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -65,6 +72,8 @@ class ProfilePage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
+
+                    // Business Name
                     ValueListenableBuilder<String>(
                       valueListenable: businessNameNotifier,
                       builder: (context, businessName, _) {
@@ -81,7 +90,10 @@ class ProfilePage extends StatelessWidget {
                         );
                       },
                     ),
+
                     const SizedBox(height: 8),
+
+                    // ROLE badge
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -108,11 +120,13 @@ class ProfilePage extends StatelessWidget {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
-                                letterSpacing: 0.3,
                               ),
                             );
                           } else {
-                            return const Text("Enter Business Details first");
+                            return const Text(
+                              "Enter Business Details first",
+                              style: TextStyle(color: Colors.white),
+                            );
                           }
                         },
                       ),
@@ -121,6 +135,7 @@ class ProfilePage extends StatelessWidget {
                 ),
               ),
 
+              // ---------- BODY ----------
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -132,36 +147,30 @@ class ProfilePage extends StatelessWidget {
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey,
-                        letterSpacing: 0.3,
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // Wrap Quick Actions in ValueListenableBuilder for role
                     ValueListenableBuilder<String>(
                       valueListenable: roleNotifier,
                       builder: (context, role, _) {
                         final bool isAdmin = role == "ADMIN";
-
-                        // Use a no-op callback when disabled to avoid nullability errors
                         final VoidCallback disabledCallback = () {};
 
                         return Column(
                           children: [
-                            // Add/Remove Staff
                             ButtonTile(
                               label: "Add/Remove Staff",
                               onTap: isAdmin
-                                  ? () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => const StaffPage(),
-                                        ),
-                                      );
-                                    }
+                                  ? () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const StaffPage(),
+                                ),
+                              )
                                   : disabledCallback,
                               icon: Icons.people_rounded,
-                              bgColor: isAdmin ? Colors.white : Colors.grey.shade300,
+                              bgColor:
+                              isAdmin ? Colors.white : Colors.grey.shade300,
                               textColor: isAdmin
                                   ? Colors.grey.shade800
                                   : Colors.grey.shade800.withOpacity(0.4),
@@ -170,20 +179,19 @@ class ProfilePage extends StatelessWidget {
 
                             const SizedBox(height: 12),
 
-                            // Change Business Details
                             ButtonTile(
                               label: "Change Business Details",
                               onTap: isAdmin
-                                  ? () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => const ChangeBusinessDetailsPage(),
-                                        ),
-                                      );
-                                    }
+                                  ? () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                  const ChangeBusinessDetailsPage(),
+                                ),
+                              )
                                   : disabledCallback,
                               icon: Icons.edit_rounded,
-                              bgColor: isAdmin ? Colors.white : Colors.grey.shade300,
+                              bgColor:
+                              isAdmin ? Colors.white : Colors.grey.shade300,
                               textColor: isAdmin
                                   ? Colors.grey.shade800
                                   : Colors.grey.shade800.withOpacity(0.4),
@@ -202,22 +210,37 @@ class ProfilePage extends StatelessWidget {
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey,
-                        letterSpacing: 0.3,
                       ),
                     ),
                     const SizedBox(height: 16),
 
                     ButtonTile(
                       label: "Privacy Policy",
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PrivacyPolicyPage(),
+                          ),
+                        );
+                      },
                       icon: Icons.description_rounded,
                       bgColor: Colors.blue.shade500,
                       textColor: Colors.white,
                     ),
+
                     const SizedBox(height: 12),
+
                     ButtonTile(
                       label: "Contact Us",
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ContactPage(),
+                          ),
+                        );
+                      },
                       icon: Icons.phone_rounded,
                       bgColor: Colors.blue.shade500,
                       textColor: Colors.white,
@@ -225,12 +248,9 @@ class ProfilePage extends StatelessWidget {
 
                     const SizedBox(height: 32),
 
-                    // Logout Section
                     ButtonTile(
                       label: "Logout",
-                      onTap: () {
-                        _handleLogout(context);
-                      },
+                      onTap: () => _handleLogout(context),
                       icon: Icons.logout_rounded,
                       bgColor: Colors.red.shade400,
                       textColor: Colors.white,
@@ -248,12 +268,30 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
+/// LOGOUT FUNCTION
 void _handleLogout(BuildContext context) async {
   final navigator = Navigator.of(context);
   final prefs = await SharedPreferences.getInstance();
+
+  // Backend logout
+  try {
+    await http.post(Uri.parse("$url/api/v1/logout"));
+  } catch (_) {}
+
+  // CLEAR EVERYTHING RELATED TO PREVIOUS USER
   await prefs.remove('auth_token');
+  await prefs.remove('user_name');
+  await prefs.remove('role');
+  await prefs.remove('business_name');
+  await prefs.remove('user_id');
+
+  // Reset UI notifiers (otherwise old admin data stays showing)
+  roleNotifier.value = "";
+  businessNameNotifier.value = "";
+  businessLogoNotifier.value = "";
+
   navigator.pushAndRemoveUntil(
     MaterialPageRoute(builder: (_) => const LoginPage()),
-    (route) => false,
+        (route) => false,
   );
 }
