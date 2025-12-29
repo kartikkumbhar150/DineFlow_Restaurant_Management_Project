@@ -27,25 +27,28 @@ public class KotStore {
     //Add order items to KOT queue and emit
     public void addOrder(Order order) {
 
-        for (OrderItem item : order.getItems()) {
+    // remove previous pending items of this table
+    kotQueue.removeIf(k -> k.getTableNumber().equals(order.getTableNumber()) && !k.isCompleted());
 
-            KotItemDTO kot = new KotItemDTO();
-            kot.setOrderId(item.getId()); 
-            kot.setItemName(item.getItemName());
-            kot.setQuantity(item.getQuantity());
-            kot.setTableNumber(order.getTableNumber());
-            kot.setCompleted(false);
+    for (OrderItem item : order.getItems()) {
+        KotItemDTO kot = new KotItemDTO();
+        kot.setOrderId(item.getId());
+        kot.setItemName(item.getItemName());
+        kot.setQuantity(item.getQuantity());
+        kot.setTableNumber(order.getTableNumber());
+        kot.setCompleted(false);
 
-            kotQueue.add(kot);
-        }
-
-        emitUpdatedKot();
+        kotQueue.add(kot);
     }
 
+    emitUpdatedKot();   // now emits only current ones for that table
+}
+
+
     //Mark all KOT items for the given TABLE as completed
-    public void markCompletedByTable(Long orderId ) {
+    public void markCompletedByOrder(Long orderId ) {
         for (KotItemDTO item : kotQueue) {
-            if (item.getTableNumber().equals(orderId) && !item.isCompleted()) {
+            if (item.getOrderId().equals(orderId) && !item.isCompleted()) {
                 item.setCompleted(true);
             }
         }

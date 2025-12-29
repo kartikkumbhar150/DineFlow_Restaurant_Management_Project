@@ -4,5 +4,5 @@ import lombok.Data;
 
 @Data
 public class MarkCompleteRequest {
-    private Long tableNumber;
+    private Long orderId;
 }

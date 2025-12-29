@@ -27,7 +27,7 @@ public class KotSseController {
 
     @PostMapping("/mark-complete")
     public ResponseEntity<Void> markComplete(@RequestBody MarkCompleteRequest request) {
-        kotStore.markCompletedByTable(request.getTableNumber());
+        kotStore.markCompletedByOrder(request.getOrderId());
         return ResponseEntity.ok().build();
     }
 
