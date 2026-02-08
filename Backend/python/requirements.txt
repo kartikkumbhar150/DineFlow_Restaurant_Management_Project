@@ -3,3 +3,4 @@ Pillow
 groq
 python-dotenv
 openpyxl
+ultralytics
