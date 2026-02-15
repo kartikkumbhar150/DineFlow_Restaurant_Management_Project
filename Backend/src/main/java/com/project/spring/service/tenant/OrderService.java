@@ -1,9 +1,7 @@
 package com.project.spring.service.tenant;
 
-import com.project.spring.dto.OrderItemRequest;
-import com.project.spring.dto.OrderItemResponse;
-import com.project.spring.dto.OrderRequest;
-import com.project.spring.dto.OrderResponse;
+import com.project.spring.config.TenantContext;
+import com.project.spring.dto.*;
 import com.project.spring.exception.ResourceNotFoundException;
 import com.project.spring.model.tenant.Order;
 import com.project.spring.model.tenant.OrderItem;
@@ -31,7 +29,11 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final KotStore kotStore;
 
-    @CacheEvict(value = { "tableStatus", "order" }, allEntries = true)
+    /* ============================================================
+       ================= CREATE ORDER =============================
+       ============================================================ */
+
+    @CacheEvict(value = {"order", "tableStatus"}, allEntries = true)
     @Transactional
     public OrderResponse createOrder(OrderRequest request) {
 
@@ -42,7 +44,7 @@ public class OrderService {
 
         if (isTableOccupied) {
             throw new RuntimeException(
-                    "Table " + tableNumber + " is already occupied. Please complete the existing order first.");
+                    "Table " + tableNumber + " is already occupied.");
         }
 
         Order order = new Order();
@@ -55,7 +57,8 @@ public class OrderService {
 
             Product product = productRepository.findById(itemRequest.getProductId())
                     .orElseThrow(() ->
-                            new ResourceNotFoundException("Product not found: " + itemRequest.getProductId()));
+                            new ResourceNotFoundException("Product not found: "
+                                    + itemRequest.getProductId()));
 
             OrderItem orderItem = new OrderItem();
             orderItem.setProductId(product.getId());
@@ -71,30 +74,51 @@ public class OrderService {
         order.setItems(orderItems);
         Order savedOrder = orderRepository.save(order);
 
-        // Send KOT for new order
         kotStore.addOrder(savedOrder);
 
         return mapToOrderResponse(savedOrder);
     }
 
-    @Cacheable(value = "order", key = "#orderId")
+    /* ============================================================
+       ================= GET ORDER (TENANT SAFE) ==================
+       ============================================================ */
+
+    @Cacheable(
+            value = "order",
+            key = "T(com.project.spring.config.TenantContext).getCurrentTenant() + '::' + #orderId"
+    )
     @Transactional
     public OrderResponse getOrderById(Long orderId) {
+
+        System.out.println(
+                "Fetching order from DB | tenant = "
+                        + TenantContext.getCurrentTenant()
+        );
+
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Order not found with ID: " + orderId));
+                        new ResourceNotFoundException(
+                                "Order not found with ID: " + orderId));
 
         return mapToOrderResponse(order);
     }
 
-    @CachePut(value = "order", key = "#orderId")
-    @CacheEvict(value = "tableStatus", key = "'default'")
+    /* ============================================================
+       ================= UPDATE ORDER =============================
+       ============================================================ */
+
+    @CachePut(
+            value = "order",
+            key = "T(com.project.spring.config.TenantContext).getCurrentTenant() + '::' + #orderId"
+    )
+    @CacheEvict(value = "tableStatus", allEntries = true)
     @Transactional
     public OrderResponse updateOrder(Long orderId, OrderRequest request) {
 
         Order existingOrder = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Order not found with ID: " + orderId));
+                        new ResourceNotFoundException(
+                                "Order not found with ID: " + orderId));
 
         existingOrder.setTableNumber(request.getTableNumber());
 
@@ -103,16 +127,23 @@ public class OrderService {
             Optional<OrderItem> existingItemOpt =
                     existingOrder.getItems().stream()
                             .filter(item -> item.getProductId() != null &&
-                                    item.getProductId().equals(itemRequest.getProductId()))
+                                    item.getProductId()
+                                            .equals(itemRequest.getProductId()))
                             .findFirst();
 
             if (existingItemOpt.isPresent()) {
                 OrderItem existingItem = existingItemOpt.get();
-                existingItem.setQuantity(existingItem.getQuantity() + itemRequest.getQuantity());
+                existingItem.setQuantity(
+                        existingItem.getQuantity()
+                                + itemRequest.getQuantity());
             } else {
-                Product product = productRepository.findById(itemRequest.getProductId())
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException("Product not found with ID: " + itemRequest.getProductId()));
+
+                Product product =
+                        productRepository.findById(itemRequest.getProductId())
+                                .orElseThrow(() ->
+                                        new ResourceNotFoundException(
+                                                "Product not found with ID: "
+                                                        + itemRequest.getProductId()));
 
                 OrderItem newItem = new OrderItem();
                 newItem.setProductId(product.getId());
@@ -128,22 +159,30 @@ public class OrderService {
 
         Order updatedOrder = orderRepository.save(existingOrder);
 
-        // ⭐ IMPORTANT: Replace KOT list for this TABLE — only latest items stay
         kotStore.removeByTable(updatedOrder.getTableNumber());
         kotStore.addOrder(updatedOrder);
 
         return mapToOrderResponse(updatedOrder);
     }
 
-    @CacheEvict(value = { "order", "tableStatus" }, allEntries = true)
+    /* ============================================================
+       ================= DELETE ORDER =============================
+       ============================================================ */
+
+    @CacheEvict(value = {"order", "tableStatus"}, allEntries = true)
     @Transactional
     public boolean deleteOrder(Long orderId) {
+
         if (orderRepository.existsById(orderId)) {
             orderRepository.deleteById(orderId);
             return true;
         }
         return false;
     }
+
+    /* ============================================================
+       ================= MAPPING =================================
+       ============================================================ */
 
     private OrderResponse mapToOrderResponse(Order order) {
 
@@ -173,7 +212,8 @@ public class OrderService {
 
             itemCountMap.put(
                     item.getItemName(),
-                    itemCountMap.getOrDefault(item.getItemName(), 0) + item.getQuantity()
+                    itemCountMap.getOrDefault(item.getItemName(), 0)
+                            + item.getQuantity()
             );
         }
 

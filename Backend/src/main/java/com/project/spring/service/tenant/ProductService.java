@@ -29,35 +29,35 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final OrderItemRepository orderItemRepository;
 
-    /* ================= CREATE ================= */
+    /* ============================================================
+       ====================== CREATE ==============================
+       ============================================================ */
 
-    @CacheEvict(
-        value = {"products", "product"},
-        key = "T(com.project.spring.config.TenantContext).getCurrentTenant()"
-    )
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public Product createProduct(Product product) {
         return productRepository.save(product);
     }
 
-    @CacheEvict(
-        value = {"products", "product"},
-        key = "T(com.project.spring.config.TenantContext).getCurrentTenant()"
-    )
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public List<Product> createProduct(List<Product> products) {
         return productRepository.saveAll(products);
     }
 
-    /* ================= READ ================= */
+    /* ============================================================
+       ======================= READ ===============================
+       ============================================================ */
 
     @Cacheable(
         value = "products",
         key = "T(com.project.spring.config.TenantContext).getCurrentTenant()"
     )
     public List<Product> getAllProducts() {
+
         System.out.println(
-            ">>> DB HIT: getAllProducts | tenant = " +
-            TenantContext.getCurrentTenant()
+                ">>> DB HIT: getAllProducts | tenant = "
+                        + TenantContext.getCurrentTenant()
         );
+
         return productRepository.findAll();
     }
 
@@ -66,26 +66,32 @@ public class ProductService {
         key = "T(com.project.spring.config.TenantContext).getCurrentTenant() + '::' + #productId"
     )
     public Product getProductById(Long productId) {
+
         System.out.println(
-            ">>> DB HIT: getProductById " + productId +
-            " | tenant = " + TenantContext.getCurrentTenant()
+                ">>> DB HIT: getProductById " + productId +
+                        " | tenant = " + TenantContext.getCurrentTenant()
         );
+
         return productRepository.findById(productId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
-                            "Product not found with ID: " + productId
+                                "Product not found with ID: " + productId
                         ));
     }
 
-    /* ================= UPDATE ================= */
+    /* ============================================================
+       ======================= UPDATE =============================
+       ============================================================ */
 
-    @CacheEvict(
-        value = {"products", "product"},
-        key = "T(com.project.spring.config.TenantContext).getCurrentTenant()"
-    )
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public Product updateProduct(Long productId, Product product) {
 
-        Product existing = getProductById(productId);
+        Product existing = productRepository.findById(productId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Product not found with ID: " + productId
+                        ));
+
         existing.setName(product.getName());
         existing.setPrice(product.getPrice());
         existing.setDescription(product.getDescription());
@@ -93,17 +99,18 @@ public class ProductService {
         return productRepository.save(existing);
     }
 
-    /* ================= DELETE ================= */
+    /* ============================================================
+       ======================= DELETE =============================
+       ============================================================ */
 
-    @CacheEvict(
-        value = {"products", "product"},
-        key = "T(com.project.spring.config.TenantContext).getCurrentTenant()"
-    )
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public void deleteProduct(Long productId) {
         productRepository.deleteById(productId);
     }
 
-    /* ================= IMAGE PROCESS ================= */
+    /* ============================================================
+       ================= IMAGE PROCESS ============================
+       ============================================================ */
 
     public List<Product> processProductsFromImage(MultipartFile file) throws Exception {
 
@@ -113,6 +120,7 @@ public class ProductService {
         ProcessBuilder pb = new ProcessBuilder(
                 "python", "main.py", tempFile.getAbsolutePath()
         );
+
         pb.directory(new File(System.getProperty("user.dir") + "/python"));
         pb.redirectErrorStream(true);
 
@@ -142,13 +150,12 @@ public class ProductService {
         return products;
     }
 
-    /* ================= CSV PROCESS ================= */
+    /* ============================================================
+       ================= CSV PROCESS ==============================
+       ============================================================ */
 
     @Transactional
-    @CacheEvict(
-        value = {"products", "product"},
-        key = "T(com.project.spring.config.TenantContext).getCurrentTenant()"
-    )
+    @CacheEvict(value = {"products", "product"}, allEntries = true)
     public List<Product> processProductsFromCsv(MultipartFile file) throws Exception {
 
         File tempFile = File.createTempFile("upload-", ".xlsx");
@@ -157,6 +164,7 @@ public class ProductService {
         ProcessBuilder pb = new ProcessBuilder(
                 "python", "main2.py", tempFile.getAbsolutePath()
         );
+
         pb.directory(new File(System.getProperty("user.dir") + "/python"));
         pb.redirectErrorStream(true);
 
@@ -182,11 +190,12 @@ public class ProductService {
                 new TypeReference<List<Product>>() {}
         );
 
-        // SAFE: only current tenant DB
+        // Only affects current tenant database
         orderItemRepository.deleteAllInBatch();
         productRepository.deleteAllInBatch();
 
         List<Product> savedProducts = productRepository.saveAll(products);
+
         tempFile.delete();
 
         return savedProducts;

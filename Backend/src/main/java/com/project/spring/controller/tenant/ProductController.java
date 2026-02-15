@@ -34,7 +34,7 @@ public class ProductController {
         );
     }
 
-    @PostMapping("/bulk")
+    @PostMapping("/bulk/save")
     public ResponseEntity<ApiResponse<List<Product>>> createProduct(@RequestBody List<Product> products) {
         List<Product> saved = productService.createProduct(products);
         return ResponseEntity.ok(

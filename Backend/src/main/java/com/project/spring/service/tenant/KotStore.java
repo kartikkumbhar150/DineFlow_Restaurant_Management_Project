@@ -1,5 +1,6 @@
 package com.project.spring.service.tenant;
 
+import com.project.spring.config.TenantContext;
 import com.project.spring.dto.KotItemDTO;
 import com.project.spring.model.tenant.Order;
 import com.project.spring.model.tenant.OrderItem;
@@ -7,73 +8,128 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 @Service
 public class KotStore {
 
-    private final List<KotItemDTO> kotQueue = new CopyOnWriteArrayList<>();
-    private final Sinks.Many<List<KotItemDTO>> kotSink = Sinks.many().replay().latest();
+    // tenant → kot list
+    private final Map<String, List<KotItemDTO>> kotQueues = new ConcurrentHashMap<>();
 
-   
-    //Remove all pending KOT entries for a specific TABLE
+    // tenant → sink
+    private final Map<String, Sinks.Many<List<KotItemDTO>>> kotSinks = new ConcurrentHashMap<>();
+
+    /* ============================================================
+       ================= INTERNAL HELPERS =========================
+       ============================================================ */
+
+    private String getTenant() {
+        return TenantContext.getCurrentTenant();
+    }
+
+    private List<KotItemDTO> getTenantQueue() {
+        return kotQueues.computeIfAbsent(getTenant(),
+                t -> new CopyOnWriteArrayList<>());
+    }
+
+    private Sinks.Many<List<KotItemDTO>> getTenantSink() {
+        return kotSinks.computeIfAbsent(getTenant(),
+                t -> Sinks.many().replay().latest());
+    }
+
+    /* ============================================================
+       ================= REMOVE BY TABLE ==========================
+       ============================================================ */
+
     public void removeByTable(Long tableNumber) {
-        kotQueue.removeIf(k -> k.getTableNumber().equals(tableNumber) && !k.isCompleted());
+
+        List<KotItemDTO> queue = getTenantQueue();
+
+        queue.removeIf(k ->
+                k.getTableNumber().equals(tableNumber)
+                        && !k.isCompleted());
+
         emitUpdatedKot();
     }
 
-    //Add order items to KOT queue and emit
+    /* ============================================================
+       ================= ADD ORDER ================================
+       ============================================================ */
+
     public void addOrder(Order order) {
 
-    // remove previous pending items of this table
-    kotQueue.removeIf(k -> k.getTableNumber().equals(order.getTableNumber()) && !k.isCompleted());
+        List<KotItemDTO> queue = getTenantQueue();
 
-    for (OrderItem item : order.getItems()) {
-        KotItemDTO kot = new KotItemDTO();
-        kot.setOrderId(item.getId());
-        kot.setItemName(item.getItemName());
-        kot.setQuantity(item.getQuantity());
-        kot.setTableNumber(order.getTableNumber());
-        kot.setCompleted(false);
+        // remove previous pending items for same table
+        queue.removeIf(k ->
+                k.getTableNumber().equals(order.getTableNumber())
+                        && !k.isCompleted());
 
-        kotQueue.add(kot);
+        for (OrderItem item : order.getItems()) {
+
+            KotItemDTO kot = new KotItemDTO();
+            kot.setOrderId(item.getOrder().getId());
+            kot.setItemName(item.getItemName());
+            kot.setQuantity(item.getQuantity());
+            kot.setTableNumber(order.getTableNumber());
+            kot.setCompleted(false);
+
+            queue.add(kot);
+        }
+
+        emitUpdatedKot();
     }
 
-    emitUpdatedKot();   // now emits only current ones for that table
-}
+    /* ============================================================
+       ================= MARK COMPLETED ===========================
+       ============================================================ */
 
+    public void markCompletedByOrder(Long orderId) {
 
-    //Mark all KOT items for the given TABLE as completed
-    public void markCompletedByOrder(Long orderId ) {
-        for (KotItemDTO item : kotQueue) {
-            if (item.getOrderId().equals(orderId) && !item.isCompleted()) {
+        List<KotItemDTO> queue = getTenantQueue();
+
+        for (KotItemDTO item : queue) {
+            if (item.getOrderId().equals(orderId)
+                    && !item.isCompleted()) {
                 item.setCompleted(true);
             }
         }
+
         emitUpdatedKot();
     }
 
-    // Stream to SSE clients
+    /* ============================================================
+       ================= SSE STREAM ===============================
+       ============================================================ */
+
     public Flux<List<KotItemDTO>> streamKot() {
-        return kotSink.asFlux();
+        return getTenantSink().asFlux();
     }
 
+    /* ============================================================
+       ================= GETTERS ==================================
+       ============================================================ */
+
     public List<KotItemDTO> getAllPending() {
-        return kotQueue.stream()
+        return getTenantQueue().stream()
                 .filter(k -> !k.isCompleted())
                 .collect(Collectors.toList());
     }
 
     public List<KotItemDTO> getAllCompleted() {
-        return kotQueue.stream()
+        return getTenantQueue().stream()
                 .filter(KotItemDTO::isCompleted)
                 .collect(Collectors.toList());
     }
 
-    // Emit updated list to SSE subscribers
+    /* ============================================================
+       ================= EMIT =====================================
+       ============================================================ */
+
     private void emitUpdatedKot() {
-        kotSink.tryEmitNext(getAllPending());
+        getTenantSink().tryEmitNext(getAllPending());
     }
 }
